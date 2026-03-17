@@ -1,0 +1,11 @@
+{
+  "src": [
+    "pages/MainPage",
+    "pages/NotebookList",
+    "pages/PageEditor",
+    "pages/SettingsPage",
+    "pages/OneDriveConfigPage",
+    "pages/SyncSettingsPage",
+    "pages/SyncHistoryPage"
+  ]
+}

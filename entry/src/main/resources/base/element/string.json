@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "label"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "需要网络权限以访问OneDrive服务"
+    },
+    {
+      "name": "network_permission_reason",
+      "value": "需要获取网络信息以检查网络连接状态"
+    }
+  ]
+}
