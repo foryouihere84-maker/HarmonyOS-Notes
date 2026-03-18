@@ -53,7 +53,7 @@ export class OneDriveConfigViewModel {
   // 状态
   public state: OneDriveConfigState = {
     email: '',
-    syncPath: '/NotebookApp',
+    syncPath: '/iherefor_Notebook',
     isLoading: false,
     isSaving: false,
     isValidating: false,
@@ -466,7 +466,7 @@ export class OneDriveConfigViewModel {
    */
   public resetForm(): void {
     this.state.email = '';
-    this.state.syncPath = '/NotebookApp';
+    this.state.syncPath = '/iherefor_Notebook';
     this.state.errors = [];
     this.state.pkceParams = null;
     this.state.authCode = null;

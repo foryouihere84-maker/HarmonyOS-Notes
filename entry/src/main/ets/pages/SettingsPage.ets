@@ -13,6 +13,9 @@ import { ThemeManager, ThemeMode, ThemeColorsInterface } from '../services/Theme
 import { Logger } from '../utils/Logger';
 import { CryptoUtils } from '../utils/CryptoUtils';
 import { ENCRYPTION_CONFIG } from '../constants/OneDriveConfig';
+import { UserStore } from '../services/UserStore';
+import { User } from '../models/User';
+import promptAction from '@ohos.promptAction';
 
 @Entry
 @Component
@@ -34,16 +37,20 @@ struct SettingsPage {
   @State private isOneDriveBound: boolean = false;
   @State private oneDriveUserInfo: MicrosoftUserInfo | null = null;
   @State private oneDriveAvatarUrl: string = '';
+  @State private currentUser: User | null = null;
+  @State private isLoggedIn: boolean = false;
   
   private settingsService = this.settingsViewModel;
   private oneDriveService = OneDriveService.getInstance();
   private themeManager: ThemeManager = ThemeManager.getInstance();
+  private userStore: UserStore = UserStore.getInstance();
   
   onThemeChange(): void {
     this.updateThemeColors();
   }
   
   aboutToAppear() {
+    this.checkLoginStatus();
     this.loadSettings();
     this.loadOneDriveUserInfo();
     this.updateThemeColors();
@@ -56,9 +63,28 @@ struct SettingsPage {
   }
   
   onPageShow() {
+    this.checkLoginStatus();
     this.loadSettings();
     this.loadOneDriveUserInfo();
     this.updateThemeColors();
+  }
+  
+  private checkLoginStatus(): void {
+    this.isLoggedIn = this.userStore.isUserLoggedIn();
+    this.currentUser = this.userStore.getCurrentUser();
+    
+    if (!this.isLoggedIn) {
+      promptAction.showToast({
+        message: '请先登录',
+        duration: 2000
+      });
+      
+      setTimeout(() => {
+        router.replaceUrl({
+          url: AppConstants.ROUTE_LOGIN
+        });
+      }, 500);
+    }
   }
   
   private updateThemeColors(): void {
@@ -388,7 +414,7 @@ struct SettingsPage {
             this.navigateToSyncSettings();
           })
                   
-          Text(this.userSettings.username)
+          Text(this.currentUser?.username || '未登录')
             .fontSize(Typography.FONT_SIZE_XL)
             .fontWeight(Typography.FONT_WEIGHT_BOLD)
             .fontColor(this.themeColors.TEXT_PRIMARY)
@@ -420,7 +446,7 @@ struct SettingsPage {
         .margin({ right: Spacing.MARGIN_MD })
         
         Column() {
-          Text(this.settingsViewModel.getAppName())
+          Text(`${this.currentUser?.username || '我的'}的笔记`)
             .fontSize(Typography.FONT_SIZE_LG)
             .fontWeight(Typography.FONT_WEIGHT_MEDIUM)
             .fontColor(this.themeColors.TEXT_PRIMARY)

@@ -38,7 +38,7 @@ struct OneDriveConfigPage {
   @State private currentPage: number = 0;
   @State private isLoading: boolean = false;
   @State private showPathSelector: boolean = false;
-  @State private selectedPath: string = '/NotebookApp';
+  @State private selectedPath: string = '/iherefor_Notebook';
   @State private authUrl: string = '';
   
   private webviewController: webview.WebviewController = new webview.WebviewController();

@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: harmonynotes
+  datasource:
+    url: jdbc:mysql://localhost:3306/harmonynotes
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.harmonynotes.harmonynotes.entity
+
+jwt:
+  secret: harmonynotes-secret-key-2024-very-long-key-for-jwt-token-generation-must-be-at-least-256-bits-long
+  expiration: 604800000
+
+server:
+  port: 8080
+  address: 0.0.0.0
+  servlet:
+    context-path: /

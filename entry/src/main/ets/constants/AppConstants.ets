@@ -32,6 +32,8 @@ export class AppConstants {
   public static readonly ROUTE_ONEDRIVE_CONFIG: string = 'pages/OneDriveConfigPage';
   public static readonly ROUTE_SYNC_SETTINGS: string = 'pages/SyncSettingsPage';
   public static readonly ROUTE_SYNC_HISTORY: string = 'pages/SyncHistoryPage';
+  public static readonly ROUTE_LOGIN: string = 'pages/LoginPage';
+  public static readonly ROUTE_REGISTER: string = 'pages/RegisterPage';
   
   // 数据限制
   public static readonly MAX_NOTEBOOK_TITLE_LENGTH: number = 100;

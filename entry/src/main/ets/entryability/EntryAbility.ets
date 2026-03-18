@@ -6,6 +6,7 @@ import { StorageService } from '../services/StorageService';
 import { LoginService } from '../services/LoginService';
 import { SettingsService } from '../services/SettingsService';
 import { ThemeManager, ThemeMode } from '../services/ThemeManager';
+import { UserStore } from '../services/UserStore';
 import { Logger } from '../utils/Logger';
 import { router } from '@kit.ArkUI';
 import { AppConstants } from '../constants/AppConstants';
@@ -21,24 +22,28 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
-    
-    this.initServices();
   }
 
   onDestroy(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
   }
 
-  onWindowStageCreate(windowStage: window.WindowStage): void {
+  async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-    windowStage.loadContent('pages/MainPage', (err) => {
-      if (err.code) {
-        hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
-        return;
-      }
-      hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
-    });
+    try {
+      await this.initServices();
+      
+      windowStage.loadContent('pages/LoginPage', (err) => {
+        if (err.code) {
+          hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
+          return;
+        }
+        hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
+      });
+    } catch (error) {
+      hilog.error(DOMAIN, 'testTag', 'Failed to initialize services. Cause: %{public}s', JSON.stringify(error));
+    }
   }
 
   onWindowStageDestroy(): void {
@@ -141,6 +146,7 @@ export default class EntryAbility extends UIAbility {
       await DatabaseHelper.getInstance().init(this.context);
       await StorageService.getInstance().init(this.context);
       await LoginService.getInstance().init(this.context);
+      await UserStore.getInstance().init(this.context);
       
       const settingsService = SettingsService.getInstance();
       await settingsService.init(this.context);

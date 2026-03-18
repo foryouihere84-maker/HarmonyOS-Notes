@@ -1,5 +1,7 @@
 {
   "src": [
+    "pages/LoginPage",
+    "pages/RegisterPage",
     "pages/MainPage",
     "pages/NotebookList",
     "pages/PageEditor",

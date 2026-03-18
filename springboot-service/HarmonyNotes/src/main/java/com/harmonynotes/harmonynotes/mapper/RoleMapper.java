@@ -1,0 +1,18 @@
+package com.harmonynotes.harmonynotes.mapper;
+
+import com.harmonynotes.harmonynotes.entity.Role;
+import org.apache.ibatis.annotations.*;
+
+import java.util.List;
+
+@Mapper
+public interface RoleMapper {
+    @Select("SELECT * FROM roles WHERE role_code = #{roleCode}")
+    Role findByRoleCode(String roleCode);
+
+    @Select("SELECT * FROM roles WHERE id = #{id}")
+    Role findById(Long id);
+
+    @Select("SELECT * FROM roles")
+    List<Role> findAll();
+}

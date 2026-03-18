@@ -10,6 +10,7 @@ import { Animation } from '../constants/Animation';
 import { SYNC_COMPLETED_EVENT_ID } from '../viewmodels/SyncSettingsViewModel';
 import { StatisticsService, StatisticsData } from '../services/StatisticsService';
 import { ThemeManager, ThemeColorsInterface } from '../services/ThemeManager';
+import { UserStore } from '../services/UserStore';
 
 type SortType = 'name' | 'createdTime' | 'modifiedTime';
 type SortOrder = 'asc' | 'desc';
@@ -47,6 +48,7 @@ struct MainPage {
   
   private statisticsService: StatisticsService = StatisticsService.getInstance();
   private themeManager: ThemeManager = ThemeManager.getInstance();
+  private userStore: UserStore = UserStore.getInstance();
   
   onThemeChange(): void {
     this.updateThemeColors();
@@ -599,7 +601,7 @@ struct MainPage {
   buildNotebookSection() {
     Column() {
       Row() {
-        Text('我的笔记本')
+        Text(`${this.userStore?.getCurrentUser()?.username || '我的'}的笔记本`)
           .fontSize(16)
           .fontColor(this.themeColors.TEXT_PRIMARY)
           .fontWeight(FontWeight.Medium)

@@ -27,7 +27,7 @@ interface SyncPathSelectorProps {
 
 @Component
 export struct SyncPathSelector {
-  @Prop currentPath: string = '/NotebookApp';
+  @Prop currentPath: string = '/iherefor_Notebook';
   @Prop onPathSelected: (path: string) => void = () => {};
   private themeManager: ThemeManager = ThemeManager.getInstance();
   
@@ -39,11 +39,11 @@ export struct SyncPathSelector {
   @State private customPath: string = '';
   
   private presetPaths: string[] = [
-    '/NotebookApp',
-    '/Documents/NotebookApp',
+    '/iherefor_Notebook',
+    '/Documents/iherefor_Notebook',
     '/My Files/Notes',
     '/Notes',
-    '/Sync/NotebookApp'
+    '/Sync/iherefor_Notebook'
   ];
   
   @State private itemScale: number = 1;
