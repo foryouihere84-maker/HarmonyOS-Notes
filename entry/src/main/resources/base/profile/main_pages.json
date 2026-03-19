@@ -8,6 +8,7 @@
     "pages/SettingsPage",
     "pages/OneDriveConfigPage",
     "pages/SyncSettingsPage",
-    "pages/SyncHistoryPage"
+    "pages/SyncHistoryPage",
+    "pages/AIChatPage"
   ]
 }

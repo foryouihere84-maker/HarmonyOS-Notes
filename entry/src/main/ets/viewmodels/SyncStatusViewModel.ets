@@ -128,7 +128,7 @@ export class SyncStatusViewModel {
   public async startSync(configId: string, syncType: SyncType = SyncType.INCREMENTAL): Promise<void> {
     try {
       this.errorMessage = '';
-      
+        
       const status = await this.syncService.manualSync(
         configId,
         syncType,
@@ -142,23 +142,24 @@ export class SyncStatusViewModel {
           this.failedItems = syncStatus.failedItems;
           this.transferSpeed = syncStatus.getFormattedTransferSpeed();
           this.remainingTime = syncStatus.getFormattedRemainingTime();
-          
+            
           if (syncStatus.isFailed()) {
             this.errorMessage = syncStatus.errorMessage;
           }
         },
         (history) => {
-          Logger.i('SyncStatusViewModel', `同步完成: ${history.id}`);
+          Logger.i('SyncStatusViewModel', `同步完成：${history.id}`);
         }
       );
-      
+        
       this.startProgressUpdate();
-      
+        
       Logger.i('SyncStatusViewModel', '开始同步');
     } catch (error) {
-      Logger.e('SyncStatusViewModel', `开始同步失败: ${error}`);
-      this.errorMessage = error instanceof Error ? error.message : '同步失败';
-      throw error;
+      Logger.e('SyncStatusViewModel', `开始同步失败：${error}`);
+      const errorMsg: string = error instanceof Error ? error.message : '同步失败';
+      this.errorMessage = errorMsg;
+      throw new Error(errorMsg);
     }
   }
   

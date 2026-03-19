@@ -19,6 +19,12 @@ jwt:
   secret: harmonynotes-secret-key-2024-very-long-key-for-jwt-token-generation-must-be-at-least-256-bits-long
   expiration: 604800000
 
+ai:
+  api:
+    url: https://api.deepseek.com/chat/completions
+    key: sk-32361de2e77b4c48b3b184a6fb712664
+    model: deepseek-reasoner
+
 server:
   port: 8080
   address: 0.0.0.0

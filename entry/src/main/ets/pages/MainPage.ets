@@ -567,6 +567,12 @@ struct MainPage {
             url: AppConstants.ROUTE_SYNC_SETTINGS
           });
         })
+        
+        this.buildActionButton('🤖', 'AI对话', '#8B5CF6', () => {
+          router.pushUrl({
+            url: AppConstants.ROUTE_AI_CHAT
+          });
+        })
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)

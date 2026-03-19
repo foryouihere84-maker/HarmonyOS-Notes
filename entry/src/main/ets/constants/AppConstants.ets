@@ -34,6 +34,7 @@ export class AppConstants {
   public static readonly ROUTE_SYNC_HISTORY: string = 'pages/SyncHistoryPage';
   public static readonly ROUTE_LOGIN: string = 'pages/LoginPage';
   public static readonly ROUTE_REGISTER: string = 'pages/RegisterPage';
+  public static readonly ROUTE_AI_CHAT: string = 'pages/AIChatPage';
   
   // 数据限制
   public static readonly MAX_NOTEBOOK_TITLE_LENGTH: number = 100;
