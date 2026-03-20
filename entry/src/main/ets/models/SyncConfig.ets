@@ -127,7 +127,8 @@ export class SyncConfig {
       json.enabled as boolean || false,
       json.conflictResolution as ConflictResolution || ConflictResolution.LATEST,
       json.createdTime as number || Date.now(),
-      json.modifiedTime as number || Date.now()
+      json.modifiedTime as number || Date.now(),
+      json.encryptionKey as string || ''
     );
   }
   

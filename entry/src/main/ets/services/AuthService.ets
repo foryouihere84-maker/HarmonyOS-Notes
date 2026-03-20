@@ -2,6 +2,7 @@ import { http } from '@kit.NetworkKit';
 import { User } from '../models/User';
 import { Logger } from '../utils/Logger';
 import { HttpMethod } from '../utils/NetworkUtils';
+import { AppConstants } from '../constants/AppConstants';
 
 export interface LoginRequest {
   username: string;
@@ -34,7 +35,7 @@ export interface AuthData {
 
 export class AuthService {
   private static instance: AuthService;
-  private static readonly BASE_URL: string = 'http://192.168.3.17:8080';
+  private static readonly BASE_URL: string = AppConstants.AUTH_BASE_URL;
   private static readonly LOGIN_ENDPOINT: string = '/api/auth/login';
   private static readonly REGISTER_ENDPOINT: string = '/api/auth/regist';
   private static readonly TIMEOUT: number = 10000;

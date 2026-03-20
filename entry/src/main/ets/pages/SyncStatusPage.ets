@@ -232,7 +232,7 @@ struct SyncStatusPage {
   @Builder
   LoadingView() {
     Column() {
-      LoadingProgress()
+      LoadingSpinner()
         .width(48)
         .height(48)
         .color(ThemeColors.PRIMARY)

@@ -35,6 +35,7 @@ export class AppConstants {
   public static readonly ROUTE_LOGIN: string = 'pages/LoginPage';
   public static readonly ROUTE_REGISTER: string = 'pages/RegisterPage';
   public static readonly ROUTE_AI_CHAT: string = 'pages/AIChatPage';
+  public static readonly ROUTE_AI_HISTORY: string = 'pages/AIHistoryPage';
   
   // 数据限制
   public static readonly MAX_NOTEBOOK_TITLE_LENGTH: number = 100;
@@ -140,4 +141,14 @@ export class AppConstants {
   // 分页
   public static readonly PAGE_SIZE: number = 20;
   public static readonly MAX_PAGE_SIZE: number = 100;
+  
+  // AI 相关配置
+  public static readonly AI_MAX_TEXT_LENGTH: number = 50 * 1024; // 50KB 阈值
+  public static readonly AI_CHUNK_SIZE: number = 10 * 1024; // 每块 10KB
+  public static readonly AI_MAX_CHUNKS: number = 20; // 最多 20 块
+  public static readonly AI_REQUEST_TIMEOUT: number = 120000; // 2 分钟
+
+  // 后端服务URL配置
+  public static readonly AUTH_BASE_URL: string = 'http://192.168.3.17:8080';
+  public static readonly API_BASE_URL: string = 'http://192.168.3.17:8080';
 }

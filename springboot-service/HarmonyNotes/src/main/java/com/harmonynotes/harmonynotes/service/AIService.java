@@ -3,6 +3,7 @@ package com.harmonynotes.harmonynotes.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harmonynotes.harmonynotes.dto.AIChatResponse;
+import com.harmonynotes.harmonynotes.entity.Prompt;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,13 +65,19 @@ public class AIService {
             userMessage.put("role", "user");
             userMessage.put("content", message);
             messages.add(userMessage);
+
+            Map<String, String> SystemMessage = new HashMap<>();
+            SystemMessage.put("role", "system");
+            SystemMessage.put("content", new Prompt().systemPrompt);
+            messages.add(SystemMessage);
+
             requestBody.put("messages", messages);
             
             String jsonRequest = objectMapper.writeValueAsString(requestBody);
             log.debug("请求内容：{}", jsonRequest);
             
             try (var os = connection.getOutputStream()) {
-                byte[] input = jsonRequest.getBytes("utf-8");
+                byte[] input = jsonRequest.getBytes(StandardCharsets.UTF_8);
                 os.write(input, 0, input.length);
             }
             
@@ -78,7 +86,7 @@ public class AIService {
             
             if (httpCode == 200) {
                 try (var reader = new BufferedReader(
-                        new InputStreamReader(connection.getInputStream(), "utf-8"))) {
+                        new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
                     
                     String line;
                     int lineCount = 0;
@@ -146,6 +154,154 @@ public class AIService {
             errorResponse.setError("AI 服务异常：" + e.getMessage());
             onResponse.accept(errorResponse);
         } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+    
+    public void funcStream(String message, String sessionId, String model, Consumer<AIChatResponse> onResponse) {
+        HttpURLConnection connection = null;
+        BufferedReader reader = null;
+        
+        try {
+            URL url = new URL(aiApiUrl);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Accept", "text/event-stream");
+            if (aiApiKey != null && !aiApiKey.isEmpty()) {
+                connection.setRequestProperty("Authorization", "Bearer " + aiApiKey);
+            }
+            
+            connection.setConnectTimeout(30000);
+            connection.setReadTimeout(300000);
+            
+            log.info("正在调用 AI API (func): {}", aiApiUrl);
+            log.info("消息长度: {} 字符", message != null ? message.length() : 0);
+            
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model != null ? model : defaultModel);
+            requestBody.put("stream", true);
+            requestBody.put("temperature", 0.7);
+            
+            List<Map<String, String>> messages = new java.util.ArrayList<>();
+            Map<String, String> userMessage = new HashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", message);
+            messages.add(userMessage);
+
+            Map<String, String> SystemMessage = new HashMap<>();
+            SystemMessage.put("role", "system");
+            SystemMessage.put("content", new Prompt().systemPrompt);
+            messages.add(SystemMessage);
+
+            requestBody.put("messages", messages);
+            
+            String jsonRequest = objectMapper.writeValueAsString(requestBody);
+            log.debug("func 请求内容长度：{} 字符", jsonRequest.length());
+            
+            try (var os = connection.getOutputStream()) {
+                byte[] input = jsonRequest.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+                log.info("请求数据已发送，大小：{} 字节", input.length);
+            }
+            
+            int httpCode = connection.getResponseCode();
+            log.info("AI API (func) 响应码：{}", httpCode);
+            
+            if (httpCode == 200) {
+                reader = new BufferedReader(
+                        new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
+                
+                String line;
+                int lineCount = 0;
+                int contentCount = 0;
+                
+                while ((line = reader.readLine()) != null) {
+                    lineCount++;
+                    line = line.trim();
+                    
+                    if (line.startsWith("data: ")) {
+                        String data = line.substring(6).trim();
+                        
+                        if (data.equals("[DONE]")) {
+                            log.info("func 收到 DONE 信号，已处理{}行数据，内容片段{}个", lineCount, contentCount);
+                            AIChatResponse doneResponse = new AIChatResponse();
+                            doneResponse.setContent(null);
+                            doneResponse.setSessionId(sessionId);
+                            doneResponse.setModel(model != null ? model : defaultModel);
+                            doneResponse.setDone(true);
+                            onResponse.accept(doneResponse);
+                            break;
+                        }
+                        
+                        if (!data.isEmpty()) {
+                            try {
+                                JsonNode jsonNode = objectMapper.readTree(data);
+                                JsonNode choices = jsonNode.path("choices");
+                                
+                                if (choices.isArray() && choices.size() > 0) {
+                                    JsonNode delta = choices.get(0).path("delta");
+                                    String content = delta.path("content").asText(null);
+                                    
+                                    if (content != null && !content.isEmpty()) {
+                                        contentCount++;
+                                        AIChatResponse chatResponse = new AIChatResponse();
+                                        chatResponse.setContent(content);
+                                        chatResponse.setSessionId(sessionId);
+                                        chatResponse.setModel(model != null ? model : defaultModel);
+                                        chatResponse.setDone(false);
+                                        
+                                        onResponse.accept(chatResponse);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.error("func 解析流数据失败：{}，数据：{}", e.getMessage(), data);
+                            }
+                        }
+                    }
+                }
+                log.info("func 读取完成，共处理{}行数据，内容片段{}个", lineCount, contentCount);
+            } else {
+                String errorResponse = "";
+                try (var errorReader = new BufferedReader(
+                        new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
+                    String errorLine;
+                    while ((errorLine = errorReader.readLine()) != null) {
+                        errorResponse += errorLine;
+                    }
+                } catch (Exception e) {
+                    log.error("读取错误响应失败：{}", e.getMessage());
+                }
+                
+                log.error("AI API (func) 请求失败：HTTP {}，错误响应：{}", httpCode, errorResponse);
+                AIChatResponse errorResponseObj = new AIChatResponse();
+                errorResponseObj.setContent(null);
+                errorResponseObj.setSessionId(sessionId);
+                errorResponseObj.setModel(model != null ? model : defaultModel);
+                errorResponseObj.setDone(true);
+                errorResponseObj.setError("AI API 请求失败：HTTP " + httpCode);
+                onResponse.accept(errorResponseObj);
+            }
+        } catch (Exception e) {
+            log.error("AI 服务 (func) 异常：{}", e.getMessage(), e);
+            AIChatResponse errorResponse = new AIChatResponse();
+            errorResponse.setContent(null);
+            errorResponse.setSessionId(sessionId);
+            errorResponse.setModel(model != null ? model : defaultModel);
+            errorResponse.setDone(true);
+            errorResponse.setError("AI 服务异常：" + e.getMessage());
+            onResponse.accept(errorResponse);
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (Exception e) {
+                    log.error("关闭 reader 失败：{}", e.getMessage());
+                }
+            }
             if (connection != null) {
                 connection.disconnect();
             }

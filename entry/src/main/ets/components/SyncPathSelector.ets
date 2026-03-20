@@ -12,6 +12,7 @@ import { Spacing } from '../constants/Spacing';
 import { BorderRadius } from '../constants/BorderRadius';
 import { Animation } from '../constants/Animation';
 import { ThemeManager, ThemeColorsInterface } from '../services/ThemeManager';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface PathItem {
   name: string;
@@ -212,10 +213,10 @@ export struct SyncPathSelector {
       
       if (this.isLoading) {
         Row() {
-          LoadingProgress()
-            .width(24)
-            .height(24)
-            .color(this.themeColors.PRIMARY)
+          LoadingSpinner({
+            color: this.themeColors.PRIMARY,
+            spinnerSize: 24
+          })
           
           Text('加载中...')
             .fontSize(Typography.FONT_SIZE_SM)

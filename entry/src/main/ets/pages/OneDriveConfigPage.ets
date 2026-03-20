@@ -25,6 +25,7 @@ import { Logger } from '../utils/Logger';
 import { PermissionUtils } from '../utils/PermissionUtils';
 import { ThemeManager, ThemeColorsInterface } from '../services/ThemeManager';
 import { LoginService } from '../services/LoginService';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import promptAction from '@ohos.promptAction';
 
 @Entry
@@ -259,10 +260,10 @@ struct OneDriveConfigPage {
   @Builder
   private buildLoadingView() {
     Column({ space: Spacing.SPACE_LG }) {
-      LoadingProgress()
-        .width(48)
-        .height(48)
-        .color(this.themeColors.PRIMARY)
+      LoadingSpinner({
+        color: this.themeColors.PRIMARY,
+        spinnerSize: 48
+      })
       
       Text('加载中...')
         .fontSize(Typography.FONT_SIZE_MD)

@@ -15,6 +15,7 @@ import { CryptoUtils } from '../utils/CryptoUtils';
 import { ENCRYPTION_CONFIG } from '../constants/OneDriveConfig';
 import { UserStore } from '../services/UserStore';
 import { User } from '../models/User';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import promptAction from '@ohos.promptAction';
 
 @Entry
@@ -572,15 +573,10 @@ struct SettingsPage {
   @Builder
   buildLoadingView() {
     Column() {
-      LoadingProgress()
-        .width(50)
-        .height(50)
-        .color(Animation.LOADING_COLOR)
-        .animation({
-          duration: Animation.LOADING_DURATION,
-          curve: Animation.CURVE_LINEAR,
-          iterations: -1
-        })
+      LoadingSpinner({
+        color: Animation.LOADING_COLOR,
+        spinnerSize: 50
+      })
       
       Text('加载中...')
         .fontSize(Typography.FONT_SIZE_SM)

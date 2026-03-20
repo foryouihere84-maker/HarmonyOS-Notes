@@ -11,6 +11,7 @@ import { SYNC_COMPLETED_EVENT_ID } from '../viewmodels/SyncSettingsViewModel';
 import { StatisticsService, StatisticsData } from '../services/StatisticsService';
 import { ThemeManager, ThemeColorsInterface } from '../services/ThemeManager';
 import { UserStore } from '../services/UserStore';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 
 type SortType = 'name' | 'createdTime' | 'modifiedTime';
 type SortOrder = 'asc' | 'desc';
@@ -573,6 +574,12 @@ struct MainPage {
             url: AppConstants.ROUTE_AI_CHAT
           });
         })
+        
+        this.buildActionButton('📝', 'AI历史', '#F59E0B', () => {
+          router.pushUrl({
+            url: AppConstants.ROUTE_AI_HISTORY
+          });
+        })
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -651,10 +658,10 @@ struct MainPage {
   @Builder
   buildLoadingView() {
     Column() {
-      LoadingProgress()
-        .width(50)
-        .height(50)
-        .color(this.themeColors.PRIMARY)
+      LoadingSpinner({
+        color: this.themeColors.PRIMARY,
+        spinnerSize: 50
+      })
       
       Text('加载中...')
         .fontSize(14)

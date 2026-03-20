@@ -9,6 +9,7 @@ import { SyncHistory } from '../models/SyncHistory';
 import { SyncState } from '../models/SyncStatus';
 import { Logger } from '../utils/Logger';
 import { ThemeManager, ThemeColorsInterface } from '../services/ThemeManager';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import promptAction from '@ohos.promptAction';
 
 @Entry
@@ -221,10 +222,10 @@ struct SyncHistoryPage {
   @Builder
   private buildLoading() {
     Column() {
-      LoadingProgress()
-        .width(48)
-        .height(48)
-        .color(this.themeColors.PRIMARY)
+      LoadingSpinner({
+        color: this.themeColors.PRIMARY,
+        spinnerSize: 48
+      })
       
       Text('加载中...')
         .fontSize(Typography.FONT_SIZE_SM)

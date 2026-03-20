@@ -494,7 +494,12 @@ export class OneDriveService {
       // 解密访问令牌
       let decryptedAccessToken: string;
       try {
+        Logger.i('OneDriveService', `开始解密访问令牌，加密密钥长度: ${encryptionKey.length}`);
+        Logger.i('OneDriveService', `加密的访问令牌长度: ${config.accessToken.length}`);
+        
         decryptedAccessToken = await CryptoUtils.decrypt(config.accessToken, encryptionKey);
+        Logger.i('OneDriveService', `解密访问令牌成功，长度: ${decryptedAccessToken.length}`);
+        Logger.i('OneDriveService', `解密后的访问令牌前50字符: ${decryptedAccessToken.substring(0, 50)}`);
         
         // Microsoft Graph API的access_token不一定是JWT格式，可能是加密令牌
         // 只要token长度合理且不为空即可使用
@@ -503,9 +508,15 @@ export class OneDriveService {
           return false;
         }
         
-        Logger.i('OneDriveService', `解密访问令牌成功，长度: ${decryptedAccessToken.length}`);
+        // 验证token是否包含有效的字符（不是解密错误产生的乱码）
+        if (decryptedAccessToken.length < 50) {
+          Logger.e('OneDriveService', `解密后的访问令牌长度异常: ${decryptedAccessToken.length}`);
+          return false;
+        }
       } catch (decryptError) {
         Logger.e('OneDriveService', `解密访问令牌失败: ${decryptError}`);
+        Logger.e('OneDriveService', `加密密钥: ${encryptionKey.substring(0, 20)}...`);
+        Logger.e('OneDriveService', `加密的token: ${config.accessToken.substring(0, 50)}...`);
         return false;
       }
       
@@ -578,16 +589,29 @@ export class OneDriveService {
       // 解密访问令牌
       let accessToken: string;
       try {
+        Logger.i('OneDriveService', `开始解密访问令牌，加密密钥长度: ${config.encryptionKey.length}`);
+        Logger.i('OneDriveService', `加密的访问令牌长度: ${config.accessToken.length}`);
+        
         accessToken = await CryptoUtils.decrypt(config.accessToken, config.encryptionKey);
         Logger.i('OneDriveService', `解密访问令牌成功，长度: ${accessToken.length}`);
+        Logger.i('OneDriveService', `解密后的访问令牌前50字符: ${accessToken.substring(0, 50)}`);
         
         // Microsoft Graph API的access_token不一定是JWT格式，可能是加密令牌
         // 只要token长度合理且不为空即可使用
         if (!accessToken || accessToken.length === 0) {
+          Logger.e('OneDriveService', '解密后的访问令牌为空');
           throw new Error('解密后的访问令牌为空');
+        }
+        
+        // 验证token是否包含有效的字符（不是解密错误产生的乱码）
+        if (accessToken.length < 50) {
+          Logger.e('OneDriveService', `解密后的访问令牌长度异常: ${accessToken.length}`);
+          throw new Error('解密后的访问令牌长度异常');
         }
       } catch (decryptError) {
         Logger.e('OneDriveService', `解密访问令牌失败: ${decryptError}`);
+        Logger.e('OneDriveService', `加密密钥: ${config.encryptionKey.substring(0, 20)}...`);
+        Logger.e('OneDriveService', `加密的token: ${config.accessToken.substring(0, 50)}...`);
         throw new Error(`解密访问令牌失败: ${decryptError}`);
       }
       

@@ -12,6 +12,7 @@ import { Typography } from '../constants/Typography';
 import { Spacing } from '../constants/Spacing';
 import { BorderRadius } from '../constants/BorderRadius';
 import { Animation } from '../constants/Animation';
+import { MarkdownWebView } from '../components/MarkdownWebView';
 
 interface HistoryState {
   title: string;
@@ -375,13 +376,12 @@ struct PageEditor {
   
   @Builder
   buildPreviewContent() {
-    Column() {
-      ForEach(this.parsedContent, (node: MarkdownNode, index: number) => {
-        this.buildMarkdownNode(node)
-      }, (node: MarkdownNode, index: number) => `${node.type}-${index}`)
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
+    MarkdownWebView({
+      markdown: this.content,
+      isDark: this.currentTheme === 'dark'
+    })
+      .width('100%')
+      .height('100%')
   }
   
   @Builder

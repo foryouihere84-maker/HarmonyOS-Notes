@@ -7,6 +7,7 @@ import { LoginService } from '../services/LoginService';
 import { SettingsService } from '../services/SettingsService';
 import { ThemeManager, ThemeMode } from '../services/ThemeManager';
 import { UserStore } from '../services/UserStore';
+import { AIHistoryService } from '../services/AIHistoryService';
 import { Logger } from '../utils/Logger';
 import { router } from '@kit.ArkUI';
 import { AppConstants } from '../constants/AppConstants';
@@ -147,6 +148,7 @@ export default class EntryAbility extends UIAbility {
       await StorageService.getInstance().init(this.context);
       await LoginService.getInstance().init(this.context);
       await UserStore.getInstance().init(this.context);
+      await AIHistoryService.getInstance().init(this.context);
       
       const settingsService = SettingsService.getInstance();
       await settingsService.init(this.context);

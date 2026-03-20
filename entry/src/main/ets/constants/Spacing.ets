@@ -97,4 +97,8 @@ export class Spacing {
   // 刷新相关
   public static readonly REFRESH_OFFSET: number = 60;
   public static readonly REFRESH_FRICTION: number = 80;
+  static SPACING_SMALL: Length | undefined;
+  static SPACING_LARGE: Length | Padding | LocalizedPadding;
+  static SPACING_MEDIUM: Length | undefined;
+  static SM: Length | LengthMetrics | undefined;
 }

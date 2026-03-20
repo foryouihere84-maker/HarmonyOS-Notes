@@ -25,8 +25,27 @@ ai:
     key: sk-32361de2e77b4c48b3b184a6fb712664
     model: deepseek-reasoner
 
+onedrive:
+  client-id: e2c2ad83-515d-4a96-bd09-fc0d73ece400
+  authority: https://login.microsoft.com/consumers
+  redirect-uri: harmonynote://oauth/callback
+  scopes: Files.ReadWrite User.Read offline_access
+  graph-api-url: https://graph.microsoft.com/v1.0
+  base:
+    path: /iherefor_Notebook
+  request-timeout-ms: 30000
+  max-retry-count: 3
+  retry-delay-ms: 1000
+
 server:
   port: 8080
-  address: 0.0.0.0
   servlet:
     context-path: /
+  tomcat:
+    connection-timeout: 300000
+    threads:
+      max: 200
+      min-spare: 10
+  mvc:
+    async:
+      request-timeout: 300000

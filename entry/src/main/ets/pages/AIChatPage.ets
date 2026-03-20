@@ -5,13 +5,23 @@ import { Animation } from '../constants/Animation';
 import { AppConstants } from '../constants/AppConstants';
 import { ThemeManager, ThemeColorsInterface } from '../services/ThemeManager';
 import { Logger } from '../utils/Logger';
-import { MarkdownText } from '../components/MarkdownText';
+import { MarkdownWebView } from '../components/MarkdownWebView';
+import { PageViewModel } from '../viewmodels/PageViewModel';
+import { NotebookViewModel } from '../viewmodels/NotebookViewModel';
+import { Notebook } from '../models/Notebook';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import promptAction from '@ohos.promptAction';
 
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+}
+
+interface SelectOptionData {
+  value: string;
+  content: string;
 }
 
 @Entry
@@ -23,12 +33,20 @@ struct AIChatPage {
   @State private pageOpacity: number = 0;
   @State private sessionId: string = '';
   @State private currentAssistantContent: string = '';
+  @State private showAddToDialog: boolean = false;
+  @State private selectedNotebookId: string = '';
+  @State private newPageTitle: string = '';
+  @State private notebooks: Notebook[] = [];
+  @State private isSaving: boolean = false;
+  @State private currentMessageToSave: ChatMessage | null = null;
   
   @StorageLink(ThemeManager.STORAGE_KEY_ACTUAL_THEME) @Watch('onThemeChange') private currentTheme: string = 'light';
   @State private themeColors: ThemeColorsInterface = ThemeManager.getInstance().getLightColors();
   
   private aiService: AIService = AIService.getInstance();
   private themeManager: ThemeManager = ThemeManager.getInstance();
+  private pageViewModel: PageViewModel = PageViewModel.getInstance();
+  private notebookViewModel: NotebookViewModel = NotebookViewModel.getInstance();
   private scrollScroller: Scroller = new Scroller();
   
   onThemeChange(): void {
@@ -153,16 +171,102 @@ struct AIChatPage {
     return `${hours}:${minutes}`;
   }
   
-  build() {
-    Column() {
-      this.buildHeader()
-      this.buildChatArea()
-      this.buildInputArea()
+  private showAddToDialogForMessage(message: ChatMessage): void {
+    Logger.i('AIChatPage', `显示添加到弹窗，message id: ${message.id}`);
+    this.currentMessageToSave = message;
+    this.loadNotebooks();
+    
+    const timestamp = new Date();
+    const timeStr = `${timestamp.getFullYear()}${String(timestamp.getMonth() + 1).padStart(2, '0')}${String(timestamp.getDate()).padStart(2, '0')}_${String(timestamp.getHours()).padStart(2, '0')}${String(timestamp.getMinutes()).padStart(2, '0')}${String(timestamp.getSeconds()).padStart(2, '0')}`;
+    this.newPageTitle = `${timeStr}_AI对话`;
+    this.selectedNotebookId = this.notebooks.length > 0 ? this.notebooks[0].id : '';
+    this.showAddToDialog = true;
+  }
+  
+  private async loadNotebooks(): Promise<void> {
+    try {
+      await this.notebookViewModel.loadNotebooks();
+      this.notebooks = this.notebookViewModel.notebooks;
+      Logger.i('AIChatPage', `加载笔记本列表成功，数量: ${this.notebooks.length}`);
+    } catch (error) {
+      Logger.e('AIChatPage', `加载笔记本列表失败: ${error}`);
+      promptAction.showToast({
+        message: '加载笔记本列表失败',
+        duration: 2000
+      });
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor(this.themeColors.BACKGROUND_PRIMARY)
-    .opacity(this.pageOpacity)
+  }
+  
+  private async saveToNotebook(): Promise<void> {
+    if (!this.currentMessageToSave) {
+      return;
+    }
+    
+    if (!this.selectedNotebookId) {
+      promptAction.showToast({
+        message: '请选择笔记本',
+        duration: 2000
+      });
+      return;
+    }
+    
+    if (!this.newPageTitle.trim()) {
+      promptAction.showToast({
+        message: '请输入标题',
+        duration: 2000
+      });
+      return;
+    }
+    
+    this.isSaving = true;
+    
+    try {
+      await this.pageViewModel.createPage(this.selectedNotebookId, this.newPageTitle, this.currentMessageToSave.content);
+      Logger.i('AIChatPage', `保存成功`);
+      
+      promptAction.showToast({
+        message: '保存成功',
+        duration: 2000
+      });
+      
+      this.showAddToDialog = false;
+      this.currentMessageToSave = null;
+    } catch (error) {
+      Logger.e('AIChatPage', `保存失败: ${error}`);
+      promptAction.showToast({
+        message: '保存失败',
+        duration: 2000
+      });
+    } finally {
+      this.isSaving = false;
+    }
+  }
+  
+  build() {
+    Stack() {
+      Column() {
+        this.buildHeader()
+        this.buildChatArea()
+        this.buildInputArea()
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.themeColors.BACKGROUND_PRIMARY)
+      .opacity(this.pageOpacity)
+      
+      if (this.showAddToDialog) {
+        Column() {
+          this.buildAddToDialog()
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0, 0, 0, 0.5)')
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.showAddToDialog = false;
+        })
+      }
+    }
   }
   
   @Builder
@@ -290,11 +394,27 @@ struct AIChatPage {
           
           if (message.role === 'assistant') {
             Column() {
-              MarkdownText({
-                markdown: message.content,
-                textColor: this.themeColors.TEXT_PRIMARY,
-                fontSize: 15
-              })
+              if (message.content && message.content.length > 0) {
+                MarkdownWebView({
+                  markdown: message.content,
+                  textColor: this.themeColors.TEXT_PRIMARY,
+                  fontSize: 15,
+                  isDark: this.currentTheme === 'dark'
+                })
+              } else if (this.isLoading && this.messages[this.messages.length - 1] === message) {
+                Row() {
+                  LoadingSpinner({
+                    color: this.themeColors.PRIMARY,
+                    spinnerSize: 16
+                  })
+                  
+                  Text('AI 正在思考...')
+                    .fontSize(13)
+                    .fontColor(this.themeColors.TEXT_SECONDARY)
+                    .margin({ left: 8 })
+                }
+                .alignItems(VerticalAlign.Center)
+              }
             }
             .constraintSize({ minWidth: 50, maxWidth: '85%' })
             .layoutWeight(1)
@@ -323,6 +443,19 @@ struct AIChatPage {
           .fontColor(this.themeColors.TEXT_TERTIARY)
           .margin({ top: 4 })
           .opacity(0.7)
+        
+        if (message.role === 'assistant' && message.content && message.content.length > 0 && !(this.isLoading && this.messages[this.messages.length - 1] === message)) {
+          Button('一键添加到')
+            .fontSize(11)
+            .fontColor(Color.White)
+            .backgroundColor(this.themeColors.PRIMARY)
+            .borderRadius(16)
+            .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+            .margin({ top: 4 })
+            .onClick(() => {
+              this.showAddToDialogForMessage(message);
+            })
+        }
       }
       .constraintSize({ maxWidth: '85%' })
       .alignItems(message.role === 'user' ? HorizontalAlign.End : HorizontalAlign.Start)
@@ -357,10 +490,10 @@ struct AIChatPage {
         
         Button({ type: ButtonType.Circle }) {
           if (this.isLoading) {
-            LoadingProgress()
-              .width(20)
-              .height(20)
-              .color(ThemeColors.WHITE)
+            LoadingSpinner({
+              color: ThemeColors.WHITE,
+              spinnerSize: 20
+            })
           } else {
             Text('➤')
               .fontSize(18)
@@ -381,5 +514,118 @@ struct AIChatPage {
     }
     .width('100%')
     .backgroundColor(this.themeColors.BACKGROUND_PRIMARY)
+  }
+  
+  @Builder
+  buildAddToDialog() {
+    Column() {
+      Text('添加到笔记本')
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.themeColors.TEXT_PRIMARY)
+        .margin({ bottom: 20 })
+      
+      Column() {
+        Text('选择笔记本')
+          .fontSize(14)
+          .fontColor(this.themeColors.TEXT_SECONDARY)
+          .margin({ bottom: 8 })
+        
+        Select(this.getNotebookOptions())
+          .value(this.selectedNotebookId)
+          .font({ size: 14 })
+          .fontColor(this.themeColors.TEXT_PRIMARY)
+          .selectedOptionFont({ size: 14 })
+          .optionFont({ size: 14 })
+          .onSelect((index: number, value?: string) => {
+            if (value) {
+              this.selectedNotebookId = value;
+            }
+          })
+          .width('100%')
+          .height(48)
+          .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+          .borderRadius(8)
+      }
+      .width('100%')
+      .margin({ bottom: 20 })
+      
+      Text('标题')
+        .fontSize(14)
+        .fontColor(this.themeColors.TEXT_SECONDARY)
+        .margin({ bottom: 8 })
+      
+      TextInput({ placeholder: '输入标题', text: this.newPageTitle })
+        .fontSize(14)
+        .fontColor(this.themeColors.TEXT_PRIMARY)
+        .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+        .borderRadius(8)
+        .placeholderColor(this.themeColors.TEXT_TERTIARY)
+        .height(48)
+        .width('100%')
+        .padding({ left: 16, right: 16 })
+        .onChange((value: string) => {
+          this.newPageTitle = value;
+        })
+      .margin({ bottom: 20 })
+      
+      Row() {
+        Button('取消')
+          .fontSize(14)
+          .fontColor(this.themeColors.TEXT_PRIMARY)
+          .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+          .borderRadius(8)
+          .layoutWeight(1)
+          .height(48)
+          .onClick(() => {
+            this.showAddToDialog = false;
+            this.currentMessageToSave = null;
+          })
+        
+        Button() {
+          if (this.isSaving) {
+            LoadingSpinner({
+              color: Color.White,
+              spinnerSize: 20
+            })
+          } else {
+            Text('保存')
+              .fontSize(14)
+              .fontColor(Color.White)
+          }
+        }
+        .backgroundColor(this.themeColors.PRIMARY)
+        .borderRadius(8)
+        .layoutWeight(1)
+        .height(48)
+        .margin({ left: 8 })
+        .onClick(() => {
+          this.saveToNotebook();
+        })
+      }
+      .width('100%')
+    }
+    .width('75%')
+    .padding(20)
+    .backgroundColor(this.themeColors.DIALOG_BACKGROUND)
+    .borderRadius(12)
+    .shadow({
+      radius: 20,
+      color: this.themeColors.SHADOW_COLOR_DARK,
+      offsetX: 0,
+      offsetY: 8
+    })
+    .onClick(() => {
+    })
+  }
+  
+  private getNotebookOptions(): SelectOption[] {
+    return this.notebooks.map((notebook: Notebook) => {
+      const option: SelectOptionData = {
+        value: notebook.id,
+        content: notebook.title
+      };
+      return option;
+    });
   }
 }

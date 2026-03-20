@@ -144,10 +144,11 @@ export struct MarkdownText {
         Text('☑ ')
           .fontSize(this.fontSize)
           .fontColor('#4CAF50')
-        Text(this.renderInlineMarkdown(line.substring(6)))
-          .fontSize(this.fontSize)
-          .fontColor(this.textColor)
-          .layoutWeight(1)
+        
+        Column() {
+          this.renderRichText(line.substring(6))
+        }
+        .layoutWeight(1)
       }
       .width('100%')
       .margin({ top: 2, bottom: 2 })
@@ -157,10 +158,11 @@ export struct MarkdownText {
         Text('☐ ')
           .fontSize(this.fontSize)
           .fontColor('#9E9E9E')
-        Text(this.renderInlineMarkdown(line.substring(6)))
-          .fontSize(this.fontSize)
-          .fontColor(this.textColor)
-          .layoutWeight(1)
+        
+        Column() {
+          this.renderRichText(line.substring(6))
+        }
+        .layoutWeight(1)
       }
       .width('100%')
       .margin({ top: 2, bottom: 2 })
@@ -170,10 +172,11 @@ export struct MarkdownText {
         Text('• ')
           .fontSize(this.fontSize)
           .fontColor(this.textColor)
-        Text(this.renderInlineMarkdown(line.substring(2)))
-          .fontSize(this.fontSize)
-          .fontColor(this.textColor)
-          .layoutWeight(1)
+        
+        Column() {
+          this.renderRichText(line.substring(2))
+        }
+        .layoutWeight(1)
       }
       .width('100%')
       .margin({ top: 2, bottom: 2 })
@@ -183,10 +186,11 @@ export struct MarkdownText {
         Text(line.substring(0, line.indexOf('. ') + 2))
           .fontSize(this.fontSize)
           .fontColor(this.textColor)
-        Text(this.renderInlineMarkdown(line.substring(line.indexOf('. ') + 2)))
-          .fontSize(this.fontSize)
-          .fontColor(this.textColor)
-          .layoutWeight(1)
+        
+        Column() {
+          this.renderRichText(line.substring(line.indexOf('. ') + 2))
+        }
+        .layoutWeight(1)
       }
       .width('100%')
       .margin({ top: 2, bottom: 2 })
@@ -199,11 +203,10 @@ export struct MarkdownText {
           .backgroundColor('#2196F3')
           .margin({ right: 8 })
         
-        Text(this.renderInlineMarkdown(line.substring(2)))
-          .fontSize(this.fontSize)
-          .fontColor(this.textColor)
-          .fontStyle(FontStyle.Italic)
-          .layoutWeight(1)
+        Column() {
+          this.renderRichText(line.substring(2))
+        }
+        .layoutWeight(1)
       }
       .width('100%')
       .padding({ left: 8, top: 4, bottom: 4, right: 8 })
@@ -219,44 +222,49 @@ export struct MarkdownText {
         .height(8)
         .width('100%')
     } else {
-      Text(this.renderInlineMarkdown(line))
-        .fontSize(this.fontSize)
-        .fontColor(this.textColor)
-        .lineHeight(22)
-        .margin({ top: 2, bottom: 2 })
-        .width('100%')
+      Column() {
+        this.renderRichText(line)
+      }
+      .margin({ top: 2, bottom: 2 })
+      .width('100%')
     }
   }
   
-  private renderInlineMarkdown(text: string): string {
+  @Builder
+  renderRichText(line: string) {
+    RichText(this.convertToHtml(line))
+      .width('100%')
+  }
+  
+  private convertToHtml(text: string): string {
     let result = text;
     
-    const htmlTagPlaceholders: Map<string, string> = new Map();
-    let placeholderIndex = 0;
-    
-    result = result.replace(/<\/?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?\/?>/g, (match) => {
-      const placeholder = `__HTML_TAG_${placeholderIndex}__`;
-      htmlTagPlaceholders.set(placeholder, match);
-      placeholderIndex++;
-      return placeholder;
-    });
-    
-    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#1976D2;text-decoration:underline;">$1</a>');
     result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '📷[$1]');
-    result = result.replace(/~~(.+?)~~/g, '<s>$1</s>');
-    result = result.replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>');
-    result = result.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-    result = result.replace(/\*(.+?)\*/g, '<i>$1</i>');
-    result = result.replace(/__(.+?)__/g, '<b>$1</b>');
-    result = result.replace(/_(.+?)_/g, '<i>$1</i>');
-    result = result.replace(/`(.+?)`/g, '<font color="#D32F2F" face="monospace" style="background-color:#F5F5F5;padding:2px 4px;border-radius:3px;">$1</font>');
-    result = result.replace(/==(.+?)==/g, '<font style="background-color:#FFEB3B;">$1</font>');
     
-    htmlTagPlaceholders.forEach((value, key) => {
-      result = result.replace(key, value);
-    });
+    result = result.replace(/\*\*\*\*(.+?)\*\*\*\*/g, `<b><i>$1</i></b>`);
+    result = result.replace(/\*\*\*(.+?)\*\*\*/g, `<b><i>$1</i></b>`);
+    result = result.replace(/\*\*(.+?)\*\*/g, `<b>$1</b>`);
+    result = result.replace(/\*(.+?)\*/g, `<i>$1</i>`);
     
-    return result;
+    result = result.replace(/__(.+?)__/g, `<b>$1</b>`);
+    result = result.replace(/_(.+?)_/g, `<i>$1</i>`);
+    
+    result = result.replace(/~~(.+?)~~/g, `<s>$1</s>`);
+    result = result.replace(/`(.+?)`/g, `<code style="background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px;">$1</code>`);
+    result = result.replace(/==(.+?)==/g, `<mark>$1</mark>`);
+    
+    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" style="color: #0078D4;">$1</a>`);
+    
+    result = result.replace(/<b>(.+?)<\/b>/gi, `<b>$1</b>`);
+    result = result.replace(/<i>(.+?)<\/i>/gi, `<i>$1</i>`);
+    result = result.replace(/<strong>(.+?)<\/strong>/gi, `<b>$1</b>`);
+    result = result.replace(/<em>(.+?)<\/em>/gi, `<i>$1</i>`);
+    result = result.replace(/<code>(.+?)<\/code>/gi, `<code style="background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px;">$1</code>`);
+    result = result.replace(/<s>(.+?)<\/s>/gi, `<s>$1</s>`);
+    result = result.replace(/<del>(.+?)<\/del>/gi, `<s>$1</s>`);
+    result = result.replace(/<mark>(.+?)<\/mark>/gi, `<mark>$1</mark>`);
+    
+    return `<span style="font-size: ${this.fontSize}px; color: ${this.textColor}; line-height: 22px;">${result}</span>`;
   }
   
   @Builder
@@ -281,7 +289,7 @@ export struct MarkdownText {
       ForEach(this.parseTable(tableMarkdown).rows, (row: string[], rowIndex: number) => {
         Row() {
           ForEach(row, (cell: string, cellIndex: number) => {
-            Text(this.renderInlineMarkdown(cell))
+            Text(this.stripMarkdown(cell))
               .fontSize(this.fontSize - 1)
               .fontColor(this.textColor)
               .padding(8)
@@ -301,6 +309,37 @@ export struct MarkdownText {
     .borderRadius(4)
     .border({ width: 1, color: '#E0E0E0' })
     .clip(true)
+  }
+  
+  private stripMarkdown(text: string): string {
+    let result = text;
+    
+    result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '📷[$1]');
+    
+    result = result.replace(/\*\*\*\*(.+?)\*\*\*\*/g, '$1');
+    result = result.replace(/\*\*\*(.+?)\*\*\*/g, '$1');
+    result = result.replace(/\*\*(.+?)\*\*/g, '$1');
+    result = result.replace(/\*(.+?)\*/g, '$1');
+    
+    result = result.replace(/__(.+?)__/g, '$1');
+    result = result.replace(/_(.+?)_/g, '$1');
+    
+    result = result.replace(/~~(.+?)~~/g, '$1');
+    result = result.replace(/`(.+?)`/g, '$1');
+    result = result.replace(/==(.+?)==/g, '$1');
+    
+    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+    
+    result = result.replace(/<b>(.+?)<\/b>/gi, '$1');
+    result = result.replace(/<i>(.+?)<\/i>/gi, '$1');
+    result = result.replace(/<strong>(.+?)<\/strong>/gi, '$1');
+    result = result.replace(/<em>(.+?)<\/em>/gi, '$1');
+    result = result.replace(/<code>(.+?)<\/code>/gi, '$1');
+    result = result.replace(/<s>(.+?)<\/s>/gi, '$1');
+    result = result.replace(/<del>(.+?)<\/del>/gi, '$1');
+    result = result.replace(/<mark>(.+?)<\/mark>/gi, '$1');
+    
+    return result;
   }
   
   private parseTable(tableMarkdown: string): TableData {
@@ -329,4 +368,3 @@ export struct MarkdownText {
     return { rows, alignments };
   }
 }
-

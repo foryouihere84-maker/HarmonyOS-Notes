@@ -1,4 +1,5 @@
 import { router } from '@kit.ArkUI';
+import { promptAction } from '@kit.ArkUI';
 import { PageViewModel } from '../viewmodels/PageViewModel';
 import { Page } from '../models/Page';
 import { DateUtils } from '../utils/DateUtils';
@@ -9,9 +10,18 @@ import { Typography } from '../constants/Typography';
 import { Spacing } from '../constants/Spacing';
 import { BorderRadius } from '../constants/BorderRadius';
 import { Animation } from '../constants/Animation';
+import { AIProcessDialog } from './AIProcessDialog';
+import { Logger } from '../utils/Logger';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 
-type PageSortType = 'title' | 'createdTime' | 'modifiedTime';
+type PageSortType = 'title' | 'createdTime' | 'modifiedTime' | 'contentLength' | 'order';
 type PageSortOrder = 'asc' | 'desc';
+
+interface AIPageProcessData {
+  id: string;
+  title: string;
+  content: string;
+}
 
 @Entry
 @Component
@@ -32,6 +42,12 @@ struct NotebookList {
   @State private isSelectionMode: boolean = false;
   @State private selectedPages: Set<string> = new Set<string>();
   @State private showBatchDeleteDialog: boolean = false;
+  @State private showAIMenu: boolean = false;
+  @State private aiButtonScale: number = 1;
+  @State private isProcessingAI: boolean = false;
+  @State private showAIProcessDialog: boolean = false;
+  @State private aiProcessAction: 'extract' | 'polish' | 'summarize' | 'expand' = 'extract';
+  @State private selectedPagesForAI: AIPageProcessData[] = [];
   @StorageLink(ThemeManager.STORAGE_KEY_ACTUAL_THEME) @Watch('onThemeChange') private currentTheme: string = 'light';
   @State private themeColors: ThemeColorsInterface = ThemeManager.getInstance().getLightColors();
   @State private pageOpacity: number = Animation.PAGE_TRANSITION_OPACITY_END;
@@ -89,8 +105,15 @@ struct NotebookList {
 
   private async refreshPages() {
     try {
+      const currentSelectedIds = Array.from(this.selectedPages);
       await this.pageViewModel.loadPages(this.notebookId);
       this.pages = this.pageViewModel.pages;
+      this.selectedPages.clear();
+      currentSelectedIds.forEach(id => {
+        if (this.pages.find(p => p.id === id)) {
+          this.selectedPages.add(id);
+        }
+      });
       this.sortPages();
     } catch (error) {
       console.error('刷新页面失败:', error);
@@ -98,7 +121,8 @@ struct NotebookList {
   }
 
   private sortPages() {
-    this.pages.sort((a, b) => {
+    const sortedPages = [...this.pages];
+    sortedPages.sort((a, b) => {
       let comparison = 0;
 
       switch (this.pageSortType) {
@@ -111,10 +135,25 @@ struct NotebookList {
         case 'modifiedTime':
           comparison = a.modifiedTime - b.modifiedTime;
           break;
+        case 'contentLength':
+          comparison = (a.content ? a.content.length : 0) - (b.content ? b.content.length : 0);
+          break;
+        case 'order':
+          comparison = a.order - b.order;
+          break;
       }
 
       return this.pageSortOrder === 'asc' ? comparison : -comparison;
     });
+
+    sortedPages.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) {
+        return b.isPinned ? 1 : -1;
+      }
+      return 0;
+    });
+
+    this.pages = sortedPages;
   }
 
   private toggleSortOrder() {
@@ -194,6 +233,64 @@ struct NotebookList {
 
   private deselectAllPages() {
     this.selectedPages.clear();
+  }
+
+  private toggleAIMenu() {
+    if (!this.isSelectionMode) {
+      return;
+    }
+    this.showAIMenu = !this.showAIMenu;
+  }
+
+  private async showAIAction(action: string): Promise<void> {
+    Logger.i('NotebookList', `showAIAction 被调用，action: ${action}`);
+    
+    if (this.selectedPages.size === 0) {
+      Logger.i('NotebookList', '没有选择笔记，显示提示');
+      promptAction.showToast({
+        message: '请先选择要处理的笔记',
+        duration: 2000
+      });
+      return;
+    }
+    
+    this.showAIMenu = false;
+    
+    const selectedPageIds = Array.from(this.selectedPages);
+    const selectedPages = this.pages.filter(p => selectedPageIds.includes(p.id));
+    
+    this.selectedPagesForAI = selectedPages.map((p: Page): AIPageProcessData => ({
+      id: p.id,
+      title: p.title,
+      content: p.content || ''
+    }));
+    
+    this.aiProcessAction = action as 'extract' | 'polish' | 'summarize' | 'expand';
+    this.showAIProcessDialog = true;
+    
+    Logger.i('NotebookList', `AIProcessDialog 显示，action: ${this.aiProcessAction}, pages: ${this.selectedPagesForAI.length}`);
+  }
+
+  /**
+   * AI 按钮点击缩放动画
+   */
+  private animateAIButtonClick(callback: () => void) {
+    animateTo({
+      duration: Animation.BUTTON_CLICK_DURATION,
+      curve: Animation.CURVE_EASE_IN_OUT
+    }, () => {
+      this.aiButtonScale = Animation.BUTTON_CLICK_SCALE;
+    });
+
+    setTimeout(() => {
+      animateTo({
+        duration: Animation.BUTTON_CLICK_DURATION,
+        curve: Animation.CURVE_EASE_IN_OUT
+      }, () => {
+        this.aiButtonScale = 1;
+      });
+      callback();
+    }, Animation.BUTTON_CLICK_DURATION);
   }
 
   private showBatchDeleteConfirm() {
@@ -409,6 +506,30 @@ struct NotebookList {
           });
         })
       }
+
+      if (this.showAIMenu && this.isSelectionMode) {
+        Column() {
+          this.buildAIMenu()
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(this.themeColors.SHADOW_COLOR)
+        .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.showAIMenu = false;
+        })
+      }
+      
+      if (this.showAIProcessDialog) {
+        AIProcessDialog({
+          action: this.aiProcessAction,
+          pages: this.selectedPagesForAI,
+          show: this.showAIProcessDialog,
+          onClose: () => {
+            this.showAIProcessDialog = false;
+          }
+        })
+      }
     }
   }
 
@@ -435,7 +556,7 @@ struct NotebookList {
           .layoutWeight(1)
           .margin({ left: Spacing.MARGIN_SM, right: Spacing.MARGIN_SM })
 
-        Button('全选')
+        Button(this.pages.length > 0 && this.selectedPages.size === this.pages.length ? '取消全选' : '全选')
           .fontSize(Typography.FONT_SIZE_MD)
           .fontWeight(Typography.FONT_WEIGHT_MEDIUM)
           .backgroundColor(Color.Transparent)
@@ -443,7 +564,7 @@ struct NotebookList {
           .scale({ x: this.buttonScale, y: this.buttonScale })
           .onClick(() => {
             this.animateButtonClick(() => {
-              if (this.selectedPages.size === this.pages.length) {
+              if (this.pages.length > 0 && this.selectedPages.size === this.pages.length) {
                 this.deselectAllPages();
               } else {
                 this.selectAllPages();
@@ -462,6 +583,22 @@ struct NotebookList {
               this.showBatchDeleteConfirm();
             });
           })
+
+        Button() {
+          Text('🤖')
+            .fontSize(Typography.FONT_SIZE_MD)
+        }
+        .backgroundColor(this.themeColors.PRIMARY)
+        .fontColor(ThemeColors.WHITE)
+        .borderRadius(BorderRadius.RADIUS_MD)
+        .width(Spacing.TOOLBAR_BUTTON_SIZE)
+        .height(Spacing.TOOLBAR_BUTTON_SIZE)
+        .scale({ x: this.aiButtonScale, y: this.aiButtonScale })
+        .onClick(() => {
+          this.animateAIButtonClick(() => {
+            this.toggleAIMenu();
+          });
+        })
       } else {
         Button() {
           Text('<')
@@ -533,11 +670,10 @@ struct NotebookList {
   @Builder
   buildLoadingView() {
     Column() {
-      LoadingProgress()
-        .width(Spacing.AVATAR_SIZE_MD)
-        .height(Spacing.AVATAR_SIZE_MD)
-        .color(this.themeColors.PRIMARY)
-        .animation({ duration: Animation.LOADING_DURATION, curve: Animation.CURVE_LINEAR, iterations: -1 })
+      LoadingSpinner({
+        color: this.themeColors.PRIMARY,
+        spinnerSize: Spacing.AVATAR_SIZE_MD
+      })
 
       Text('加载中...')
         .fontSize(Typography.FONT_SIZE_SM)
@@ -605,8 +741,7 @@ struct NotebookList {
   buildPageItem(page: Page) {
     Row() {
       if (this.isSelectionMode) {
-        Checkbox()
-          .select(this.isPageSelected(page.id))
+        Checkbox({ name: page.id, group: this.isPageSelected(page.id) ? 'selected' : '' })
           .selectedColor(this.themeColors.PRIMARY)
           .width(20)
           .height(20)
@@ -876,9 +1011,13 @@ struct NotebookList {
             .layoutWeight(1)
 
           if (this.pageSortType === 'title') {
-            Text('✓')
+            Text(this.pageSortOrder === 'asc' ? '↑' : '↓')
               .fontSize(Typography.FONT_SIZE_MD)
               .fontColor(this.themeColors.PRIMARY)
+              .margin({ right: Spacing.MARGIN_SM })
+              .onClick(() => {
+                this.toggleSortOrder();
+              })
           }
         }
         .width('100%')
@@ -886,22 +1025,27 @@ struct NotebookList {
         .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
         .borderRadius(BorderRadius.RADIUS_MD)
         .onClick(() => {
-          this.pageSortType = 'title';
-          this.sortPages();
+          if (this.pageSortType !== 'title') {
+            this.pageSortType = 'title';
+            this.sortPages();
+          }
         })
 
         Row() {
           Text('创建时间')
             .fontSize(Typography.FONT_SIZE_MD)
             .fontColor(this.pageSortType === 'createdTime' ? this.themeColors.PRIMARY : this.themeColors.TEXT_PRIMARY)
-            .fontWeight(this.pageSortType === 'createdTime' ? Typography.FONT_WEIGHT_MEDIUM :
-              Typography.FONT_WEIGHT_NORMAL)
+            .fontWeight(this.pageSortType === 'createdTime' ? Typography.FONT_WEIGHT_MEDIUM : Typography.FONT_WEIGHT_NORMAL)
             .layoutWeight(1)
 
           if (this.pageSortType === 'createdTime') {
-            Text('✓')
+            Text(this.pageSortOrder === 'asc' ? '↑' : '↓')
               .fontSize(Typography.FONT_SIZE_MD)
               .fontColor(this.themeColors.PRIMARY)
+              .margin({ right: Spacing.MARGIN_SM })
+              .onClick(() => {
+                this.toggleSortOrder();
+              })
           }
         }
         .width('100%')
@@ -909,22 +1053,27 @@ struct NotebookList {
         .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
         .borderRadius(BorderRadius.RADIUS_MD)
         .onClick(() => {
-          this.pageSortType = 'createdTime';
-          this.sortPages();
+          if (this.pageSortType !== 'createdTime') {
+            this.pageSortType = 'createdTime';
+            this.sortPages();
+          }
         })
 
         Row() {
           Text('修改时间')
             .fontSize(Typography.FONT_SIZE_MD)
             .fontColor(this.pageSortType === 'modifiedTime' ? this.themeColors.PRIMARY : this.themeColors.TEXT_PRIMARY)
-            .fontWeight(this.pageSortType === 'modifiedTime' ? Typography.FONT_WEIGHT_MEDIUM :
-              Typography.FONT_WEIGHT_NORMAL)
+            .fontWeight(this.pageSortType === 'modifiedTime' ? Typography.FONT_WEIGHT_MEDIUM : Typography.FONT_WEIGHT_NORMAL)
             .layoutWeight(1)
 
           if (this.pageSortType === 'modifiedTime') {
-            Text('✓')
+            Text(this.pageSortOrder === 'asc' ? '↑' : '↓')
               .fontSize(Typography.FONT_SIZE_MD)
               .fontColor(this.themeColors.PRIMARY)
+              .margin({ right: Spacing.MARGIN_SM })
+              .onClick(() => {
+                this.toggleSortOrder();
+              })
           }
         }
         .width('100%')
@@ -932,8 +1081,66 @@ struct NotebookList {
         .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
         .borderRadius(BorderRadius.RADIUS_MD)
         .onClick(() => {
-          this.pageSortType = 'modifiedTime';
-          this.sortPages();
+          if (this.pageSortType !== 'modifiedTime') {
+            this.pageSortType = 'modifiedTime';
+            this.sortPages();
+          }
+        })
+
+        Row() {
+          Text('内容长度')
+            .fontSize(Typography.FONT_SIZE_MD)
+            .fontColor(this.pageSortType === 'contentLength' ? this.themeColors.PRIMARY : this.themeColors.TEXT_PRIMARY)
+            .fontWeight(this.pageSortType === 'contentLength' ? Typography.FONT_WEIGHT_MEDIUM : Typography.FONT_WEIGHT_NORMAL)
+            .layoutWeight(1)
+
+          if (this.pageSortType === 'contentLength') {
+            Text(this.pageSortOrder === 'asc' ? '↑' : '↓')
+              .fontSize(Typography.FONT_SIZE_MD)
+              .fontColor(this.themeColors.PRIMARY)
+              .margin({ right: Spacing.MARGIN_SM })
+              .onClick(() => {
+                this.toggleSortOrder();
+              })
+          }
+        }
+        .width('100%')
+        .padding(Spacing.PADDING_MD)
+        .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+        .borderRadius(BorderRadius.RADIUS_MD)
+        .onClick(() => {
+          if (this.pageSortType !== 'contentLength') {
+            this.pageSortType = 'contentLength';
+            this.sortPages();
+          }
+        })
+
+        Row() {
+          Text('自定义顺序')
+            .fontSize(Typography.FONT_SIZE_MD)
+            .fontColor(this.pageSortType === 'order' ? this.themeColors.PRIMARY : this.themeColors.TEXT_PRIMARY)
+            .fontWeight(this.pageSortType === 'order' ? Typography.FONT_WEIGHT_MEDIUM : Typography.FONT_WEIGHT_NORMAL)
+            .layoutWeight(1)
+
+          if (this.pageSortType === 'order') {
+            Text(this.pageSortOrder === 'asc' ? '↑' : '↓')
+              .fontSize(Typography.FONT_SIZE_MD)
+              .fontColor(this.themeColors.PRIMARY)
+              .margin({ right: Spacing.MARGIN_SM })
+              .onClick(() => {
+                this.toggleSortOrder();
+              })
+          }
+        }
+        .width('100%')
+        .padding(Spacing.PADDING_MD)
+        .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+        .borderRadius(BorderRadius.RADIUS_MD)
+        .onClick(() => {
+          if (this.pageSortType !== 'order') {
+            this.pageSortType = 'order';
+            this.sortPages();
+          }
         })
       }
       .width('100%')
@@ -954,6 +1161,136 @@ struct NotebookList {
               this.animateDialogHide(() => {
                 this.showSortDialog = false;
               });
+            });
+          })
+      }
+      .width('100%')
+    }
+    .width('75%')
+    .padding(Spacing.PADDING_LG)
+    .backgroundColor(this.themeColors.DIALOG_BACKGROUND)
+    .borderRadius(BorderRadius.DIALOG_RADIUS)
+    .shadow({
+      radius: Spacing.SHADOW_RADIUS_XL,
+      color: this.themeColors.SHADOW_COLOR_DARK,
+      offsetX: 0,
+      offsetY: Spacing.SHADOW_OFFSET_XL
+    })
+    .scale({ x: this.dialogScale, y: this.dialogScale })
+    .opacity(this.dialogOpacity)
+    .animation({ duration: Animation.DIALOG_DURATION, curve: Animation.CURVE_EASE_IN_OUT })
+  }
+
+  @Builder
+  buildAIMenu() {
+    Column() {
+      Text('AI 功能')
+        .fontSize(Typography.FONT_SIZE_XL)
+        .fontWeight(Typography.FONT_WEIGHT_BOLD)
+        .fontColor(this.themeColors.TEXT_PRIMARY)
+        .margin({ bottom: Spacing.MARGIN_LG })
+
+      Column() {
+        Row() {
+          Text('📝')
+            .fontSize(Typography.FONT_SIZE_LG)
+            .margin({ right: Spacing.MARGIN_SM })
+
+          Text('AI 提炼')
+            .fontSize(Typography.FONT_SIZE_MD)
+            .fontColor(this.themeColors.TEXT_PRIMARY)
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding(Spacing.PADDING_MD)
+        .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+        .borderRadius(BorderRadius.RADIUS_MD)
+        .scale({ x: this.buttonScale, y: this.buttonScale })
+        .onClick(() => {
+          this.animateButtonClick(() => {
+            this.showAIAction('extract');
+          });
+        })
+
+        Row() {
+          Text('✨')
+            .fontSize(Typography.FONT_SIZE_LG)
+            .margin({ right: Spacing.MARGIN_SM })
+
+          Text('AI 润色')
+            .fontSize(Typography.FONT_SIZE_MD)
+            .fontColor(this.themeColors.TEXT_PRIMARY)
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding(Spacing.PADDING_MD)
+        .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+        .borderRadius(BorderRadius.RADIUS_MD)
+        .scale({ x: this.buttonScale, y: this.buttonScale })
+        .onClick(() => {
+          this.animateButtonClick(() => {
+            this.showAIAction('polish');
+          });
+        })
+
+        Row() {
+          Text('📊')
+            .fontSize(Typography.FONT_SIZE_LG)
+            .margin({ right: Spacing.MARGIN_SM })
+
+          Text('AI 总结')
+            .fontSize(Typography.FONT_SIZE_MD)
+            .fontColor(this.themeColors.TEXT_PRIMARY)
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding(Spacing.PADDING_MD)
+        .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+        .borderRadius(BorderRadius.RADIUS_MD)
+        .scale({ x: this.buttonScale, y: this.buttonScale })
+        .onClick(() => {
+          this.animateButtonClick(() => {
+            this.showAIAction('summarize');
+          });
+        })
+
+        Row() {
+          Text('🚀')
+            .fontSize(Typography.FONT_SIZE_LG)
+            .margin({ right: Spacing.MARGIN_SM })
+
+          Text('AI 拓展')
+            .fontSize(Typography.FONT_SIZE_MD)
+            .fontColor(this.themeColors.TEXT_PRIMARY)
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding(Spacing.PADDING_MD)
+        .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+        .borderRadius(BorderRadius.RADIUS_MD)
+        .scale({ x: this.buttonScale, y: this.buttonScale })
+        .onClick(() => {
+          this.animateButtonClick(() => {
+            this.showAIAction('expand');
+          });
+        })
+      }
+      .width('100%')
+      .margin({ bottom: Spacing.MARGIN_LG })
+
+      Row() {
+        Button('取消')
+          .fontSize(Typography.FONT_SIZE_MD)
+          .fontWeight(Typography.FONT_WEIGHT_MEDIUM)
+          .backgroundColor(this.themeColors.BACKGROUND_TERTIARY)
+          .fontColor(this.themeColors.TEXT_PRIMARY)
+          .borderRadius(BorderRadius.RADIUS_MD)
+          .layoutWeight(1)
+          .height(Spacing.INPUT_HEIGHT)
+          .scale({ x: this.buttonScale, y: this.buttonScale })
+          .onClick(() => {
+            this.animateButtonClick(() => {
+              this.showAIMenu = false;
             });
           })
       }

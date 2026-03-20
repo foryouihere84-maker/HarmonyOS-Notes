@@ -23,6 +23,7 @@ import { Logger } from '../utils/Logger';
 import { ThemeManager, ThemeColorsInterface } from '../services/ThemeManager';
 import { LoginService } from '../services/LoginService';
 import { LoginInfo } from '../models/LoginInfo';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import common from '@ohos.app.ability.common';
 
 @Entry
@@ -503,10 +504,10 @@ struct SyncSettingsPage {
   @Builder
   private buildLoadingView() {
     Column({ space: Spacing.SPACE_MD }) {
-      LoadingProgress()
-        .width(48)
-        .height(48)
-        .color(this.themeColors.PRIMARY)
+      LoadingSpinner({
+        color: this.themeColors.PRIMARY,
+        spinnerSize: 48
+      })
       
       Text('加载中...')
         .fontSize(Typography.FONT_SIZE_MD)
